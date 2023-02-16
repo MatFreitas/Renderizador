@@ -19,6 +19,9 @@ import numpy as np  # Biblioteca do Numpy
 import numpy as np
 
 
+import numpy as np
+
+
 class GL:
     """Classe que representa a biblioteca gráfica (Graphics Library)."""
 
