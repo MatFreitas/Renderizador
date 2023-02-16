@@ -16,6 +16,9 @@ import gpu          # Simula os recursos de uma GPU
 import math         # Funções matemáticas
 import numpy as np  # Biblioteca do Numpy
 
+import numpy as np
+
+
 class GL:
     """Classe que representa a biblioteca gráfica (Graphics Library)."""
 
@@ -43,6 +46,15 @@ class GL:
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polypoint2D
         # você pode assumir o desenho dos pontos com a cor emissiva (emissiveColor).
 
+        
+        total_points = len(point)
+        r = 255*colors['emissiveColor'][0]
+        g = 255*colors['emissiveColor'][1]
+        b = 255*colors['emissiveColor'][2]
+
+        for i in range(0, total_points, 2):
+            gpu.GPU.set_pixel(int(point[i]), int(point[i+1]), r, g, b) # altera um pixel da imagem (u, v, r, g, b)    
+
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
         print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
@@ -65,15 +77,45 @@ class GL:
         # vira uma quantidade par de valores.
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polyline2D
         # você pode assumir o desenho das linhas com a cor emissiva (emissiveColor).
+        total_points = int(len(lineSegments))
+
+        for i in range(0, total_points - 2, 2):
+            u1, v1 = int(lineSegments[i]), int(lineSegments[i+1])
+            u2, v2 = int(lineSegments[i+2]), int(lineSegments[i+3])
+
+            dx =  abs(u2-u1)
+            dy = -abs(v2-v1)
+
+            sx = 1 if u1 < u2 else -1
+            sy = 1 if v1 < v2 else -1 
+
+            err = dx + dy
+            
+            while True:
+                GL.polypoint2D([u1, v1], colors) 
+                e2 = 2*err
+                if e2 >= dy:
+                    if u1 == u2:
+                        break
+                    err += dy
+                    u1  += sx
+                if e2 <= dx:
+                    if v1 == v2:
+                        break
+                    err += dx
+                    v1  += sy
 
         print("Polyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
         print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
         
         # Exemplo:
-        pos_x = GL.width//2
-        pos_y = GL.height//2
-        gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [255, 0, 255])  # altera pixel (u, v, tipo, r, g, b)
-        # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
+        # pos_x = GL.width//2
+        # pos_y = GL.height//2
+        # gpu.GPU.set_pixel(pos_x, pos_y, 255, 0, 0) # altera um pixel da imagem (u, v, r, g, b)
+
+    @staticmethod
+    def L(x, y, x0, y0, x1, y1):
+        return (y1-y0)*x - (x1-x0)*y + y0*(x1-x0) - x0*(y1-y0)
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -85,6 +127,27 @@ class GL:
         # quantidade de pontos é sempre multiplo de 3, ou seja, 6 valores ou 12 valores, etc.
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o TriangleSet2D
         # você pode assumir o desenho das linhas com a cor emissiva (emissiveColor).
+        total_vertices  = len(vertices)
+        total_triangles = int(total_vertices/6)
+        triangles = np.array_split(vertices, total_triangles)
+
+        for i in range(total_triangles):
+            curr_vertices = triangles[i]
+
+            GL.polyline2D([curr_vertices[0], curr_vertices[1], curr_vertices[2], curr_vertices[3]], colors)
+            GL.polyline2D([curr_vertices[2], curr_vertices[3], curr_vertices[4], curr_vertices[5]], colors)
+            GL.polyline2D([curr_vertices[4], curr_vertices[5], curr_vertices[0], curr_vertices[1]], colors)
+
+
+            for i in range(GL.width):
+                for j in range(GL.height):
+                    # L(x, y) = (y1 – y0)x – (x1 – x0)y + y0(x1 – x0) – x0(y1 – y0)
+                    if GL.L(i, j, curr_vertices[0], curr_vertices[1], curr_vertices[2], curr_vertices[3]) >= 0 and \
+                       GL.L(i, j, curr_vertices[2], curr_vertices[3], curr_vertices[4], curr_vertices[5]) >= 0 and \
+                       GL.L(i, j, curr_vertices[4], curr_vertices[5], curr_vertices[0], curr_vertices[1]) >= 0:
+                       GL.polypoint2D([i, j], colors)
+
+
         print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
         print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
