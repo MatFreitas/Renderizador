@@ -6,9 +6,9 @@
 """
 Biblioteca Gráfica / Graphics Library.
 
-Desenvolvido por: <SEU NOME AQUI>
+Desenvolvido por: Matheus Freitas Sant'Ana
 Disciplina: Computação Gráfica
-Data: <DATA DE INÍCIO DA IMPLEMENTAÇÃO>
+Data: 11/02/2023
 """
 
 import time         # Para operações com tempo
