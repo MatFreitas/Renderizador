@@ -56,16 +56,16 @@ class GL:
         b = 255*colors['emissiveColor'][2]
 
         for i in range(0, total_points, 2):
-            gpu.GPU.set_pixel(int(point[i]), int(point[i+1]), r, g, b) # altera um pixel da imagem (u, v, r, g, b)    
+            gpu.GPU.draw_pixel([int(point[i]), int(point[i+1])], gpu.GPU.RGB8, [r, g, b])
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
-        print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
+        # print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo:
-        pos_x = GL.width//2
-        pos_y = GL.height//2
-        gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [255, 0, 0])  # altera pixel (u, v, tipo, r, g, b)
+        # pos_x = GL.width//2
+        # pos_y = GL.height//2
+        # gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [255, 0, 0])  # altera pixel (u, v, tipo, r, g, b)
         # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
         
     @staticmethod
@@ -108,8 +108,8 @@ class GL:
                     err += dx
                     v1  += sy
 
-        print("Polyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
-        print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("Polyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
+        # print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
         
         # Exemplo:
         # pos_x = GL.width//2
@@ -151,11 +151,11 @@ class GL:
                        GL.polypoint2D([i, j], colors)
 
 
-        print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
-        print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
+        # print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo:
-        gpu.GPU.draw_pixel([6, 8], gpu.GPU.RGB8, [255, 255, 0])  # altera pixel (u, v, tipo, r, g, b)
+        # gpu.GPU.draw_pixel([6, 8], gpu.GPU.RGB8, [255, 255, 0])  # altera pixel (u, v, tipo, r, g, b)
 
 
     @staticmethod
@@ -171,13 +171,33 @@ class GL:
         # triângulo, e assim por diante.
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o TriangleSet
         # você pode assumir o desenho das linhas com a cor emissiva (emissiveColor).
+        total_vertices  = len(point)
+        total_triangles = int(total_vertices/9)
+        triangles = np.array_split(point, total_triangles)
+
+        for i in range(total_triangles):
+            vert = triangles[i]
+
+            GL.polyline3D([vert[0], vert[1], vert[2], vert[3], vert[4], vert[5]], colors)
+            GL.polyline3D([vert[3], vert[4], vert[5], vert[6], vert[7], vert[8]], colors)
+            GL.polyline3D([vert[6], vert[7], vert[8], vert[0], vert[1], vert[2]], colors)
+
+            
+
+            # for i in range(GL.width):
+            #     for j in range(GL.height):
+            #         # L(x, y) = (y1 – y0)x – (x1 – x0)y + y0(x1 – x0) – x0(y1 – y0)
+            #         if GL.L(i, j, curr_vertices[0], curr_vertices[1], curr_vertices[2], curr_vertices[3]) >= 0 and \
+            #            GL.L(i, j, curr_vertices[2], curr_vertices[3], curr_vertices[4], curr_vertices[5]) >= 0 and \
+            #            GL.L(i, j, curr_vertices[4], curr_vertices[5], curr_vertices[0], curr_vertices[1]) >= 0:
+            #            GL.polypoint2D([i, j], colors)
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("TriangleSet : pontos = {0}".format(point)) # imprime no terminal pontos
         print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        gpu.GPU.draw_pixel([10, 10, 10], gpu.GPU.RGB8, [0, 255, 255])  # altera pixel
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
@@ -186,6 +206,117 @@ class GL:
         # câmera virtual. Use esses dados para poder calcular e criar a matriz de projeção
         # perspectiva para poder aplicar nos pontos dos objetos geométricos.
 
+        # LookAt
+        # Convertendo radianos
+        angle = np.radians(orientation[3])
+        
+        # Montando matriz quaternions
+        q = np.array([orientation[0]*np.sin(angle/2),
+                      orientation[1]*np.sin(angle/2),
+                      orientation[2]*np.sin(angle/2),
+                      np.cos(angle/2)])
+        
+        # Normalizando q
+        q = q/np.linalg.norm(q)
+
+        i, j, k, r = q
+        r11 = 1-2*(j**2 + k**2)
+        r12 = 2*(i*j - k*r)
+        r13 = 2*(i*k + j*r)
+        r14 = 0
+        r21 = 2*(i*j + k*r)
+        r22 = 1 - 2*(i**2 + k**2)
+        r23 = 2*(j*k - i*r)
+        r24 = 0
+        r31 = 2*(i*k - j*r)
+        r32 = 2*(j*k + i*r)
+        r33 = 1 - 2*(i**2 + j**2)
+        r34 = 0
+        r41 = 0
+        r42 = 0
+        r43 = 0
+        r44 = 1
+
+        # Matriz de rotação em quatérnions
+        R = np.array([[r11, r12, r13, r14],
+                      [r21, r22, r23, r24],
+                      [r31, r32, r33, r34],
+                      [r41, r42, r43, r44]])
+        
+        # Matriz translação (não homogênea)
+        T_id = np.array([[1, 0, 0],
+                         [0, 1, 0],
+                         [0, 0, 1],
+                         position])
+        
+        # Fazendo transposição da matriz
+        T = T_id.transpose()
+
+        # Tornando matriz de translação homogênea
+        T = np.append(T,np.array(([[0, 0, 0, 1]])), axis=0)
+        
+        # Matriz lookat
+        LookAt = np.linalg.inv(np.matmul(T, R))
+
+        print("LookAt: \n", LookAt)
+        
+        # Perspectiva
+        Fovy = 2*np.arctan(np.tan(fieldOfView/2)*GL.height/np.sqrt(GL.height**2+GL.width**2))
+
+        top = GL.near*np.tan(Fovy)
+        bottom = -top
+        right = top * GL.width/GL.height
+        left = -right
+
+        p11 = GL.near/right
+        p12 = 0.0
+        p13 = 0.0
+        p14 = 0.0
+        p21 = 0.0
+        p22 = GL.near/top
+        p23 = 0.0
+        p24 = 0.0
+        p31 = 0.0
+        p32 = 0.0
+        p33 = -((GL.far+GL.near)/(GL.far-GL.near))
+        p34 = -2.0*GL.far*GL.near/(GL.far-GL.near)
+        p41 = 0.0
+        p42 = 0.0
+        p43 = -1.0
+        p44 = 0.0
+        Perspective = np.array([[p11, p12, p13, p14],
+                      [p21, p22, p23, p24],
+                      [p31, p32, p33, p34],
+                      [p41, p42, p43, p44]])
+        
+        # Screen
+        E = np.array([[1.0, 0.0, 0.0, 0.0],
+                      [0.0, -1.0, 0.0, 0.0],
+                      [0.0, 0.0, 1.0, 0.0],
+                      [0.0, 0.0, 0.0, 1.0]])
+        
+        T = np.array([[1.0, 0.0, 0.0, 1.0],
+                      [0.0, 1.0, 0.0, 1.0],
+                      [0.0, 0.0, 1.0, 0.0],
+                      [0.0, 0.0, 0.0, 1.0]])
+        
+        S = np.array([[GL.width/2, 0.0, 0.0, 1.0],
+                      [0.0, GL.height/2, 0.0, 1.0],
+                      [0.0, 0.0, 1.0, 0.0],
+                      [0.0, 0.0, 0.0, 1.0]])
+
+        Screen = np.matmul(S,T,E)
+
+        # View
+        View = np.matmul(Screen, Perspective, LookAt)
+
+        print("Perspective: \n", Perspective)
+        print("Screen: \n", Screen)
+        print("View: \n", View)
+
+
+
+    
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("Viewpoint : ", end='')
         print("position = {0} ".format(position), end='')
