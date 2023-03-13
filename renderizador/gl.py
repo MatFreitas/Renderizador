@@ -174,28 +174,54 @@ class GL:
         # (emissiveColor), conforme implementar novos materias você deverá suportar outros
         # tipos de cores.
 
+        # print("View (print triangleSet): \n", GL.view)
+        # print("Model (print triangleSet): \n", GL.model)
+
+        total_vertices  = len(point)
+        total_triangles = int(total_vertices/9)
+        triangles = np.array_split(point, total_triangles)
+
+        for i in range(total_triangles):
+            curr_vertices = triangles[i]
+
+            # Coordenadas do triângulo
+            ax, ay, az = curr_vertices[0], curr_vertices[1], curr_vertices[2]
+            bx, by, bz = curr_vertices[3], curr_vertices[4], curr_vertices[5]
+            cx, cy, cz = curr_vertices[6], curr_vertices[7], curr_vertices[8]
+
+            coordinates = np.array([[ax, bx, cx],
+                                    [ay, by, cy],
+                                    [az, bz, cz],
+                                    [1.0, 1.0, 1.0]])
+
+            # Multiplicando por matriz de transform e do viewpoint            
+            coordinates = np.matmul(GL.model, coordinates)
+            coordinates = np.matmul(GL.view, coordinates)
+
+            # Dividindo os valores pela última linha (não-homogênea)
+            coordinates /= coordinates[-1]
+            
+            # Criando lista de pontos
+            points = []
+            for i in range(3):
+                points.append(coordinates[0][i])
+                points.append(coordinates[1][i])
+            
+            GL.triangleSet2D(points, colors)
+
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("TriangleSet : pontos = {0}".format(point)) # imprime no terminal pontos
-        print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("TriangleSet : pontos = {0}".format(point)) # imprime no terminal pontos
+        # print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10, 10], gpu.GPU.RGB8, [0, 255, 255])  # altera pixel
+        # gpu.GPU.draw_pixel([10, 10, 10], gpu.GPU.RGB8, [0, 255, 255])  # altera pixel
 
     @staticmethod
-    def viewpoint(position, orientation, fieldOfView):
-        """Função usada para renderizar (na verdade coletar os dados) de Viewpoint."""
-        # Na função de viewpoint você receberá a posição, orientação e campo de visão da
-        # câmera virtual. Use esses dados para poder calcular e criar a matriz de projeção
-        # perspectiva para poder aplicar nos pontos dos objetos geométricos.
-
-        # LookAt
-        # Convertendo radianos
-        angle = np.radians(orientation[3])
-        
+    def rotate_quaternion(axis_rotation, angle):
         # Montando matriz quaternions
-        q = np.array([orientation[0]*np.sin(angle/2),
-                      orientation[1]*np.sin(angle/2),
-                      orientation[2]*np.sin(angle/2),
+        q = np.array([axis_rotation[0]*np.sin(angle/2),
+                      axis_rotation[1]*np.sin(angle/2),
+                      axis_rotation[2]*np.sin(angle/2),
                       np.cos(angle/2)])
         
         # Normalizando q
@@ -225,6 +251,19 @@ class GL:
                       [r31, r32, r33, r34],
                       [r41, r42, r43, r44]])
         
+        return R
+
+    @staticmethod
+    def viewpoint(position, orientation, fieldOfView):
+        """Função usada para renderizar (na verdade coletar os dados) de Viewpoint."""
+        # Na função de viewpoint você receberá a posição, orientação e campo de visão da
+        # câmera virtual. Use esses dados para poder calcular e criar a matriz de projeção
+        # perspectiva para poder aplicar nos pontos dos objetos geométricos.
+
+        # LookAt
+        # Matriz Rotação
+        R = GL.rotate_quaternion(orientation[:3], orientation[3])
+        
         # Matriz translação (não homogênea)
         T_id = np.array([[1.0, 0.0, 0.0],
                          [0.0, 1.0, 0.0],
@@ -233,14 +272,14 @@ class GL:
         
         # Fazendo transposição da matriz
         T = T_id.transpose()
-
+        
         # Tornando matriz de translação homogênea
         T = np.append(T,np.array(([[0.0, 0.0, 0.0, 1.0]])), axis=0)
         
         # Matriz lookat
         LookAt = np.linalg.inv(np.matmul(T, R))
 
-        print("LookAt: \n", LookAt)
+        # print("LookAt: \n", LookAt)
         
         # Perspectiva
         Fovy = 2.0*np.arctan(np.tan(fieldOfView/2.0)*GL.height/np.sqrt(GL.height**2+GL.width**2))
@@ -272,39 +311,25 @@ class GL:
                       [p41, p42, p43, p44]])
         
         # Screen
-        E = np.array([[1.0, 0.0, 0.0, 0.0],
-                      [0.0, -1.0, 0.0, 0.0],
-                      [0.0, 0.0, 1.0, 0.0],
-                      [0.0, 0.0, 0.0, 1.0]])
+        Screen = np.array([[GL.width/2.0, 0.0, 0.0, GL.width/2.0],
+                           [0.0, -GL.height/2.0, 0.0, GL.height/2.0],
+                           [0.0, 0.0, 1.0, 0.0],
+                           [0.0, 0.0, 0.0, 1.0]])
         
-        T = np.array([[1.0, 0.0, 0.0, 1.0],
-                      [0.0, 1.0, 0.0, 1.0],
-                      [0.0, 0.0, 1.0, 0.0],
-                      [0.0, 0.0, 0.0, 1.0]])
-        
-        S = np.array([[GL.width/2.0, 0.0, 0.0, 1.0],
-                      [0.0, GL.height/2.0, 0.0, 1.0],
-                      [0.0, 0.0, 1.0, 0.0],
-                      [0.0, 0.0, 0.0, 1.0]])
-
-        Screen = np.matmul(T,E)
-        Screen = np.matmul(S,Screen)
 
         # View
-        View = np.matmul(Screen, Perspective, LookAt)
+        GL.view = np.matmul(Perspective, LookAt)
+        GL.view = np.matmul(Screen, GL.view)
 
-        print("Perspective: \n", Perspective)
-        print("Screen: \n", Screen)
-        print("View: \n", View)
-
-
-
+        # print("Perspective: \n", Perspective)
+        # print("Screen: \n", Screen)
+        # print("View: \n", GL.view)
     
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Viewpoint : ", end='')
-        print("position = {0} ".format(position), end='')
-        print("orientation = {0} ".format(orientation), end='')
-        print("fieldOfView = {0} ".format(fieldOfView))
+        # print("Viewpoint : ", end='')
+        # print("position = {0} ".format(position), end='')
+        # print("orientation = {0} ".format(orientation), end='')
+        # print("fieldOfView = {0} ".format(fieldOfView))
 
     @staticmethod
     def transform_in(translation, scale, rotation):
@@ -316,16 +341,34 @@ class GL:
         # do objeto ao redor do eixo x, y, z por t radianos, seguindo a regra da mão direita.
         # Quando se entrar em um nó transform se deverá salvar a matriz de transformação dos
         # modelos do mundo em alguma estrutura de pilha.
+        
+        # Matriz translação
+        T = np.array([[1.0, 0.0, 0.0, translation[0]],
+                      [0.0, 1.0, 0.0, translation[1]],
+                      [0.0, 0.0, 1.0, translation[2]],
+                      [0.0, 0.0, 0.0, 1.0]])
+        
+        # Matriz escala
+        S = np.array([[scale[0], 0.0, 0.0, 0.0],
+                      [0.0, scale[1], 0.0, 0.0],
+                      [0.0, 0.0, scale[2], 0.0],
+                      [0.0, 0.0, 0.0, 1.0]])
+
+        # Matriz rotação
+        R = GL.rotate_quaternion(rotation[:3], rotation[3])
+        
+        GL.model = np.matmul(R, S)
+        GL.model = np.matmul(T, GL.model)
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Transform : ", end='')
-        if translation:
-            print("translation = {0} ".format(translation), end='') # imprime no terminal
-        if scale:
-            print("scale = {0} ".format(scale), end='') # imprime no terminal
-        if rotation:
-            print("rotation = {0} ".format(rotation), end='') # imprime no terminal
-        print("")
+        # print("Transform : ", end='')
+        # if translation:
+        #     print("translation = {0} ".format(translation), end='') # imprime no terminal
+        # if scale:
+        #     print("scale = {0} ".format(scale), end='') # imprime no terminal
+        # if rotation:
+        #     print("rotation = {0} ".format(rotation), end='') # imprime no terminal
+        # print("")
 
     @staticmethod
     def transform_out():
