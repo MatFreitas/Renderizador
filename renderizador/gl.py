@@ -202,22 +202,22 @@ class GL:
         q = q/np.linalg.norm(q)
 
         i, j, k, r = q
-        r11 = 1-2*(j**2 + k**2)
-        r12 = 2*(i*j - k*r)
-        r13 = 2*(i*k + j*r)
-        r14 = 0
-        r21 = 2*(i*j + k*r)
-        r22 = 1 - 2*(i**2 + k**2)
-        r23 = 2*(j*k - i*r)
-        r24 = 0
-        r31 = 2*(i*k - j*r)
-        r32 = 2*(j*k + i*r)
-        r33 = 1 - 2*(i**2 + j**2)
-        r34 = 0
-        r41 = 0
-        r42 = 0
-        r43 = 0
-        r44 = 1
+        r11 = 1.0-2.0*(j**2 + k**2)
+        r12 = 2.0*(i*j - k*r)
+        r13 = 2.0*(i*k + j*r)
+        r14 = 0.0
+        r21 = 2.0*(i*j + k*r)
+        r22 = 1.0 - 2.0*(i**2 + k**2)
+        r23 = 2.0*(j*k - i*r)
+        r24 = 0.0
+        r31 = 2.0*(i*k - j*r)
+        r32 = 2.0*(j*k + i*r)
+        r33 = 1.0 - 2.0*(i**2 + j**2)
+        r34 = 0.0
+        r41 = 0.0
+        r42 = 0.0
+        r43 = 0.0
+        r44 = 1.0
 
         # Matriz de rotação em quatérnions
         R = np.array([[r11, r12, r13, r14],
@@ -226,16 +226,16 @@ class GL:
                       [r41, r42, r43, r44]])
         
         # Matriz translação (não homogênea)
-        T_id = np.array([[1, 0, 0],
-                         [0, 1, 0],
-                         [0, 0, 1],
+        T_id = np.array([[1.0, 0.0, 0.0],
+                         [0.0, 1.0, 0.0],
+                         [0.0, 0.0, 1.0],
                          position])
         
         # Fazendo transposição da matriz
         T = T_id.transpose()
 
         # Tornando matriz de translação homogênea
-        T = np.append(T,np.array(([[0, 0, 0, 1]])), axis=0)
+        T = np.append(T,np.array(([[0.0, 0.0, 0.0, 1.0]])), axis=0)
         
         # Matriz lookat
         LookAt = np.linalg.inv(np.matmul(T, R))
@@ -243,7 +243,7 @@ class GL:
         print("LookAt: \n", LookAt)
         
         # Perspectiva
-        Fovy = 2*np.arctan(np.tan(fieldOfView/2)*GL.height/np.sqrt(GL.height**2+GL.width**2))
+        Fovy = 2.0*np.arctan(np.tan(fieldOfView/2.0)*GL.height/np.sqrt(GL.height**2+GL.width**2))
 
         top = GL.near*np.tan(Fovy)
         bottom = -top
@@ -282,12 +282,13 @@ class GL:
                       [0.0, 0.0, 1.0, 0.0],
                       [0.0, 0.0, 0.0, 1.0]])
         
-        S = np.array([[GL.width/2, 0.0, 0.0, 1.0],
-                      [0.0, GL.height/2, 0.0, 1.0],
+        S = np.array([[GL.width/2.0, 0.0, 0.0, 1.0],
+                      [0.0, GL.height/2.0, 0.0, 1.0],
                       [0.0, 0.0, 1.0, 0.0],
                       [0.0, 0.0, 0.0, 1.0]])
 
-        Screen = np.matmul(S,T,E)
+        Screen = np.matmul(T,E)
+        Screen = np.matmul(S,Screen)
 
         # View
         View = np.matmul(Screen, Perspective, LookAt)
