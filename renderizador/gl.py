@@ -56,7 +56,8 @@ class GL:
         b = 255*colors['emissiveColor'][2]
 
         for i in range(0, total_points, 2):
-            gpu.GPU.draw_pixel([int(point[i]), int(point[i+1])], gpu.GPU.RGB8, [r, g, b])
+            if 0 < point[i] < GL.width and 0 < point[i+1] < GL.height:
+                gpu.GPU.draw_pixel([int(point[i]), int(point[i+1])], gpu.GPU.RGB8, [r, g, b])
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
@@ -180,7 +181,7 @@ class GL:
         total_vertices  = len(point)
         total_triangles = int(total_vertices/9)
         triangles = np.array_split(point, total_triangles)
-
+        
         for i in range(total_triangles):
             curr_vertices = triangles[i]
 
@@ -200,7 +201,7 @@ class GL:
 
             # Dividindo os valores pela última linha (não-homogênea)
             coordinates /= coordinates[-1]
-            
+
             # Criando lista de pontos
             points = []
             for i in range(3):
