@@ -38,6 +38,12 @@ class GL:
         GL.near = near
         GL.far = far
 
+        # Inicializando pilha com identidade
+        GL.stack = [np.array([[1.0, 0.0, 0.0, 0.0],
+                             [0.0, 1.0, 0.0, 0.0],
+                             [0.0, 0.0, 1.0, 0.0],
+                             [0.0, 0.0, 0.0, 1.0]])]
+
     @staticmethod
     def polypoint2D(point, colors):
         """Função usada para renderizar Polypoint2D."""
@@ -142,9 +148,13 @@ class GL:
             GL.polyline2D([curr_vertices[2], curr_vertices[3], curr_vertices[4], curr_vertices[5]], colors)
             GL.polyline2D([curr_vertices[4], curr_vertices[5], curr_vertices[0], curr_vertices[1]], colors)
 
+            x_min = int(min(curr_vertices[0], curr_vertices[2], curr_vertices[4])*0.85)
+            x_max = int(max(curr_vertices[0], curr_vertices[2], curr_vertices[4])*1.15)
+            y_min = int(min(curr_vertices[1], curr_vertices[3], curr_vertices[5])*0.85)
+            y_max = int(max(curr_vertices[1], curr_vertices[3], curr_vertices[5])*1.15)
 
-            for i in range(GL.width):
-                for j in range(GL.height):
+            for i in range(x_min, x_max):
+                for j in range(y_min, y_max):
                     # L(x, y) = (y1 – y0)x – (x1 – x0)y + y0(x1 – x0) – x0(y1 – y0)
                     if GL.L(i, j, curr_vertices[0], curr_vertices[1], curr_vertices[2], curr_vertices[3]) >= 0 and \
                        GL.L(i, j, curr_vertices[2], curr_vertices[3], curr_vertices[4], curr_vertices[5]) >= 0 and \
@@ -333,6 +343,16 @@ class GL:
         # print("fieldOfView = {0} ".format(fieldOfView))
 
     @staticmethod
+    def pushmatrix(m):
+        """Função para empilhar uma matriz"""
+        GL.stack.append(np.matmul(GL.stack[-1], m))
+
+    @staticmethod
+    def popmatrix():
+        """Função para desempilhar uma matriz"""
+        return GL.stack.pop()
+
+    @staticmethod
     def transform_in(translation, scale, rotation):
         """Função usada para renderizar (na verdade coletar os dados) de Transform."""
         # A função transform_in será chamada quando se entrar em um nó X3D do tipo Transform
@@ -361,6 +381,11 @@ class GL:
         GL.model = np.matmul(R, S)
         GL.model = np.matmul(T, GL.model)
 
+        # Armazenando na pilha
+        GL.pushmatrix(GL.model)
+
+        # print("Pilha (in): \n", GL.stack)
+
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("Transform : ", end='')
         # if translation:
@@ -379,8 +404,13 @@ class GL:
         # deverá recuperar a matriz de transformação dos modelos do mundo da estrutura de
         # pilha implementada.
 
+        # Recuperando transformação do modelo
+        GL.model = GL.popmatrix()
+
+        # print("Pilha (out): \n", GL.stack)
+
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Saindo de Transform")
+        # print("Saindo de Transform")
 
     @staticmethod
     def triangleStripSet(point, stripCount, colors):
@@ -394,17 +424,28 @@ class GL:
         # em uma lista chamada stripCount (perceba que é uma lista). Ligue os vértices na ordem,
         # primeiro triângulo será com os vértices 0, 1 e 2, depois serão os vértices 1, 2 e 3,
         # depois 2, 3 e 4, e assim por diante. Cuidado com a orientação dos vértices, ou seja,
-        # todos no sentido horário ou todos no sentido anti-horário, conforme especificado.
+        # todos no sentido horário ou todos no sentido anti-horário, conforme especificado
+        clockwise = False
 
+        for v in range(stripCount[0] - 2):
+            i = v*3
+            if not clockwise:
+                currentVerts = point[i:i+9]
+            else:
+                currentVerts = point[i:i+3] + point[i+6:i+9] + point[i+3:i+6]
+            
+            clockwise = not clockwise
+            GL.triangleSet(currentVerts, colors)
+        
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("TriangleStripSet : pontos = {0} ".format(point), end='')
-        for i, strip in enumerate(stripCount):
-            print("strip[{0}] = {1} ".format(i, strip), end='')
-        print("")
-        print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("TriangleStripSet : pontos = {0} ".format(point), end='')
+        # for i, strip in enumerate(stripCount):
+        #     print("strip[{0}] = {1} ".format(i, strip), end='')
+        # print("")
+        # print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        # gpu   .GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
 
     @staticmethod
     def indexedTriangleStripSet(point, index, colors):
@@ -420,13 +461,30 @@ class GL:
         # primeiro triângulo será com os vértices 0, 1 e 2, depois serão os vértices 1, 2 e 3,
         # depois 2, 3 e 4, e assim por diante. Cuidado com a orientação dos vértices, ou seja,
         # todos no sentido horário ou todos no sentido anti-horário, conforme especificado.
+        i = 2
+        clockwise = False
+
+        while index[i] != -1:
+            if not clockwise:
+                points = [point[index[i-2]*3], point[index[i-2]*3+1], point[index[i-2]*3+2],
+                          point[index[i-1]*3], point[index[i-1]*3+1], point[index[i-1]*3+2],
+                          point[index[i]*3], point[index[i]*3+1], point[index[i]*3+2]] 
+            else:
+                points = [point[index[i-2]*3], point[index[i-2]*3+1], point[index[i-2]*3+2],
+                          point[index[i]*3], point[index[i]*3+1], point[index[i]*3+2],
+                          point[index[i-1]*3], point[index[i-1]*3+1], point[index[i-1]*3+2]] 
+                
+            clockwise = not clockwise
+            GL.triangleSet(points, colors)
+
+            i += 1
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
-        print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
+        # print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
+        # print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
 
     @staticmethod
     def box(size, colors):
@@ -445,6 +503,23 @@ class GL:
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
         gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
 
+    # @staticmethod
+    # def color_baricentric(x, y, xa, ya, xb, yb, xc, yc):
+    #     # alpha = L_BC(x, y)/L_BC(xA, yA)
+    #     alpha = GL.L(x, y, xb, yb, xc, yc)/GL.L(xa, ya, xb, yb, xc, yc)
+
+    #     # beta = L_CA(x, y)/L_CA(xb, yb)
+    #     beta = GL.L(x, y, xc, yc, xa, ya)/GL.L(xb, yb, xc, yc, xa, ya)
+
+    #     # gama = L_AB(x, y)/L_AB(xc, yc)
+    #     # gama = L(x, y, xa, ya, xb, yb)/L(xc, yc, xa, ya, xb, yb)
+
+    #     # gama = 1 - alpha - beta
+    #     gama = 1 - alpha - beta
+
+    #     # C = alpha*CA + beta*CB + gama*CC
+    #     return alpha*colors[:, 0] + beta*colors[:, 1] + gama*colors[:, 2]
+    
     @staticmethod
     def indexedFaceSet(coord, coordIndex, colorPerVertex, color, colorIndex,
                        texCoord, texCoordIndex, colors, current_texture):
@@ -467,24 +542,40 @@ class GL:
         # textura para o poligono, para isso, use as coordenadas de textura e depois aplique a
         # cor da textura conforme a posição do mapeamento. Dentro da classe GPU já está
         # implementadado um método para a leitura de imagens.
+        clockwise = False
+
+        for i in range(0, len(coordIndex), 4):
+            if not clockwise:
+                points = [coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
+                          coord[coordIndex[i+1]*3], coord[coordIndex[i+1]*3+1], coord[coordIndex[i+1]*3+2],
+                          coord[coordIndex[i+2]*3], coord[coordIndex[i+2]*3+1], coord[coordIndex[i+2]*3+2]] 
+            else:
+                points = [coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
+                          coord[coordIndex[i+2]*3], coord[coordIndex[i+2]*3+1], coord[coordIndex[i+2]*3+2],
+                          coord[coordIndex[i+1]*3], coord[coordIndex[i+1]*3+1], coord[coordIndex[i+1]*3+2]] 
+                
+            clockwise = not clockwise
+            GL.triangleSet(points, colors)
+
+            i += 1
 
         # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("IndexedFaceSet : ")
-        if coord:
-            print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
-        print("colorPerVertex = {0}".format(colorPerVertex))
-        if colorPerVertex and color and colorIndex:
-            print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
-        if texCoord and texCoordIndex:
-            print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
-        if current_texture:
-            image = gpu.GPU.load_texture(current_texture[0])
-            print("\t Matriz com image = {0}".format(image))
-            print("\t Dimensões da image = {0}".format(image.shape))
-        print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
+        # print("IndexedFaceSet : ")
+        # if coord:
+        #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
+        # print("colorPerVertex = {0}".format(colorPerVertex))
+        # if colorPerVertex and color and colorIndex:
+        #     print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
+        # if texCoord and texCoordIndex:
+        #     print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
+        # if current_texture:
+        #     image = gpu.GPU.load_texture(current_texture[0])
+        #     print("\t Matriz com image = {0}".format(image))
+        #     print("\t Dimensões da image = {0}".format(image.shape))
+        # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
 
     @staticmethod
     def sphere(radius, colors):
