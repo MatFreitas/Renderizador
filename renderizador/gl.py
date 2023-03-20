@@ -378,11 +378,15 @@ class GL:
         # Matriz rotação
         R = GL.rotate_quaternion(rotation[:3], rotation[3])
         
-        GL.model = np.matmul(R, S)
-        GL.model = np.matmul(T, GL.model)
+        # Realizando transformações
+        transform = np.matmul(R, S)
+        transform = np.matmul(T, transform)
 
         # Armazenando na pilha
-        GL.pushmatrix(GL.model)
+        GL.pushmatrix(transform)
+
+        # Definindo matriz do model
+        GL.model = GL.stack[-1]
 
         # print("Pilha (in): \n", GL.stack)
 
@@ -559,7 +563,7 @@ class GL:
 
             i += 1
 
-        # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
+        # # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("IndexedFaceSet : ")
         # if coord:
         #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
@@ -574,7 +578,7 @@ class GL:
         #     print("\t Dimensões da image = {0}".format(image.shape))
         # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
 
-        # Exemplo de desenho de um pixel branco na coordenada 10, 10
+        # # Exemplo de desenho de um pixel branco na coordenada 10, 10
         # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
 
     @staticmethod
@@ -600,7 +604,7 @@ class GL:
         # ambientIntensity = 0,0 e direção = (0 0 −1).
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
+        # print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
 
     @staticmethod
     def directionalLight(ambientIntensity, color, intensity, direction):
