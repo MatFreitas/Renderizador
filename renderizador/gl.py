@@ -391,14 +391,14 @@ class GL:
         # print("Pilha (in): \n", GL.stack)
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("Transform : ", end='')
-        # if translation:
-        #     print("translation = {0} ".format(translation), end='') # imprime no terminal
-        # if scale:
-        #     print("scale = {0} ".format(scale), end='') # imprime no terminal
-        # if rotation:
-        #     print("rotation = {0} ".format(rotation), end='') # imprime no terminal
-        # print("")
+        print("Transform : ", end='')
+        if translation:
+            print("translation = {0} ".format(translation), end='') # imprime no terminal
+        if scale:
+            print("scale = {0} ".format(scale), end='') # imprime no terminal
+        if rotation:
+            print("rotation = {0} ".format(rotation), end='') # imprime no terminal
+        print("")
 
     @staticmethod
     def transform_out():
@@ -442,11 +442,11 @@ class GL:
             GL.triangleSet(currentVerts, colors)
         
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("TriangleStripSet : pontos = {0} ".format(point), end='')
-        # for i, strip in enumerate(stripCount):
-        #     print("strip[{0}] = {1} ".format(i, strip), end='')
-        # print("")
-        # print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
+        print("TriangleStripSet : pontos = {0} ".format(point), end='')
+        for i, strip in enumerate(stripCount):
+            print("strip[{0}] = {1} ".format(i, strip), end='')
+        print("")
+        print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
         # gpu   .GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
@@ -484,8 +484,8 @@ class GL:
             i += 1
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
-        # print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
+        print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
+        print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
         # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
@@ -561,9 +561,9 @@ class GL:
             clockwise = not clockwise
             GL.triangleSet(points, colors)
 
-            i += 1
+            # i += 1
 
-        # # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
+        # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("IndexedFaceSet : ")
         # if coord:
         #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
