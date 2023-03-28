@@ -182,7 +182,7 @@ class GL:
         # (emissiveColor), conforme implementar novos materias você deverá suportar outros
         # tipos de cores.
         GL.draw_triangle(point, colors)
-        
+
         # print("View (print triangleSet): \n", GL.view)
         # print("Model (print triangleSet): \n", GL.model)
 
@@ -523,8 +523,8 @@ class GL:
                     # Previous Color
                     prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
                     
-                    # Cor interpolada
-                    r, g, b = alpha*color[:, 0] + beta*color[:, 1] + gama*color[:, 2]
+                    # Cor interpolada (levando em conta deformação da perspectiva)
+                    r, g, b = Z*(alpha*color[:, 0]/za + beta*color[:, 1]/zb + gama*color[:, 2]/zc)
                     r *= (1-colors['transparency'])
                     g *= (1-colors['transparency'])
                     b *= (1-colors['transparency'])
