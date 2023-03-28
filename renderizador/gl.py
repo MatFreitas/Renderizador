@@ -502,7 +502,7 @@ class GL:
                     # Combinando as cores
                     r, g, b = prev_color + new_color
 
-                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
+                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r*255*ss, g*255*ss, b*255*ss]) 
 
     @staticmethod
     def draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors, ss=1):
@@ -639,13 +639,13 @@ class GL:
                 
                 while True:
                     # Anti aliasing
-                    # _ss = GL.super_sampling(u1, v1, xa, ya, xb, yb, xc, yc)
+                    _ss = GL.super_sampling(u1, v1, xa, ya, xb, yb, xc, yc)
 
                     # Desenha pixel (3D/2D)
                     if two_dimensional is None:
                         GL.draw_pixel_custom_3D(u1, v1, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors)
                     else:
-                        GL.draw_pixel_custom_2D(u1, v1, xa, ya, xb, yb, xc, yc, color, colors)
+                        GL.draw_pixel_custom_2D(u1, v1, xa, ya, xb, yb, xc, yc, color, colors, ss=_ss)
 
                     e2 = 2*err
                     if e2 >= dy:
@@ -670,13 +670,13 @@ class GL:
                     # L(x, y) = (y1 – y0)x – (x1 – x0)y + y0(x1 – x0) – x0(y1 – y0)
                     # Checa normal em ambos os casos: para fora e para dentro (+ ou -)
                     if GL.is_inside(i, j, xa, ya, xb, yb, xc, yc):
-                        # _ss = GL.super_sampling(i, j, xa, ya, xb, yb, xc, yc)
+                        _ss = GL.super_sampling(i, j, xa, ya, xb, yb, xc, yc)
 
                         # Desenha pixel (3D/2D)
                         if two_dimensional is None:
                             GL.draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors)
                         else:
-                            GL.draw_pixel_custom_2D(i, j, xa, ya, xb, yb, xc, yc, color, colors)
+                            GL.draw_pixel_custom_2D(i, j, xa, ya, xb, yb, xc, yc, color, colors, ss=_ss)
 
 
 
