@@ -518,27 +518,41 @@ class GL:
             if 0 < i < GL.width and 0 < j < GL.height: # Se está dentro do FrameBuffer
                 if(Z < gpu.GPU.read_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F)): # Se o ponto está mais próximo
                     # Define coordenada Z como ponto mais próximo no Framebuffer de profundidade
-                    gpu.GPU.draw_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F, Z)
+                    gpu.GPU.draw_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F, [Z])
 
                     # Previous Color
                     prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
                     
                     # Cor interpolada (levando em conta deformação da perspectiva)
                     r, g, b = Z*(alpha*color[:, 0]/za + beta*color[:, 1]/zb + gama*color[:, 2]/zc)
-                    r *= (1-colors['transparency'])
-                    g *= (1-colors['transparency'])
-                    b *= (1-colors['transparency'])
+                    r *= (1-colors['transparency'])*255
+                    g *= (1-colors['transparency'])*255
+                    b *= (1-colors['transparency'])*255
+                    
+                    if r > 255.0:
+                        r = 255.0
+                    if r < 0.0:
+                        r = 0.0
+                    if g > 255.0:
+                        g = 255.0
+                    if g < 0.0:
+                        g = 0.0
+                    if b > 255.0:
+                        b = 255.0
+                    if b < 0.0:
+                        b = 0.0
+
                     new_color = [r, g, b]
 
                     # Combinando as cores
                     r, g, b = prev_color + new_color
 
-                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
+                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
         else:
             if 0 < i < GL.width and 0 < j < GL.height: # Se está dentro do FrameBuffer
                 if(Z < gpu.GPU.read_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F)): # Se o ponto está mais próximo
                     # Define coordenada Z como ponto mais próximo no Framebuffer de profundidade
-                    gpu.GPU.draw_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F, Z)
+                    gpu.GPU.draw_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F, [Z])
 
                     # Previous Color
                     prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
@@ -547,13 +561,13 @@ class GL:
                     r = colors['emissiveColor'][0]*(1-colors['transparency'])
                     g = colors['emissiveColor'][1]*(1-colors['transparency'])
                     b = colors['emissiveColor'][2]*(1-colors['transparency'])
-                    new_color = [r, g, b]
+                    new_color = [r*255, g*255, b*255]
 
                     # Combinando as cores
                     r, g, b = prev_color + new_color
-    
+
                     # r, g, b = color_buffer
-                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
+                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
 
     @staticmethod
     def draw_triangle(points, colors, color=None, two_dimensional=None):
