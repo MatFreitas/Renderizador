@@ -717,15 +717,25 @@ class GL:
         # todos no sentido horário ou todos no sentido anti-horário, conforme especificado
         clockwise = False
 
-        for v in range(stripCount[0] - 2):
-            i = v*3
-            if not clockwise:
-                currentVerts = point[i:i+9]
-            else:
-                currentVerts = point[i:i+3] + point[i+6:i+9] + point[i+3:i+6]
-            
-            clockwise = not clockwise
-            GL.draw_triangle(currentVerts, colors)
+        # Índice para controlar onde está na lista de pontos
+        idx_i = 0
+        for count in stripCount:
+            for v in range(count - 2):
+                # Seta offset a partir do índice em que está dos pontos
+                i = v*3
+                i += idx_i
+
+                # Desenha triângulo
+                if not clockwise:
+                    currentVerts = point[i:i+9]
+                else:
+                    currentVerts = point[i:i+3] + point[i+6:i+9] + point[i+3:i+6]
+                
+                clockwise = not clockwise
+                GL.draw_triangle(currentVerts, colors)
+
+            # Soma quando vértices foram usados
+            idx_i += count*3
         
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("TriangleStripSet : pontos = {0} ".format(point), end='')
@@ -754,20 +764,26 @@ class GL:
         i = 2
         clockwise = False
 
-        while index[i] != -1:
-            if not clockwise:
-                points = [point[index[i-2]*3], point[index[i-2]*3+1], point[index[i-2]*3+2],
-                          point[index[i-1]*3], point[index[i-1]*3+1], point[index[i-1]*3+2],
-                          point[index[i]*3], point[index[i]*3+1], point[index[i]*3+2]] 
-            else:
-                points = [point[index[i-2]*3], point[index[i-2]*3+1], point[index[i-2]*3+2],
-                          point[index[i]*3], point[index[i]*3+1], point[index[i]*3+2],
-                          point[index[i-1]*3], point[index[i-1]*3+1], point[index[i-1]*3+2]] 
-                
-            clockwise = not clockwise
-            GL.draw_triangle(points, colors)
+        while i < len(index):
+            # Conecta os pontos até encontrar o -1
+            while index[i] != -1:
+                # Desenha triângulo
+                if not clockwise:
+                    points = [point[index[i-2]*3], point[index[i-2]*3+1], point[index[i-2]*3+2],
+                            point[index[i-1]*3], point[index[i-1]*3+1], point[index[i-1]*3+2],
+                            point[index[i]*3], point[index[i]*3+1], point[index[i]*3+2]] 
+                else:
+                    points = [point[index[i-2]*3], point[index[i-2]*3+1], point[index[i-2]*3+2],
+                            point[index[i]*3], point[index[i]*3+1], point[index[i]*3+2],
+                            point[index[i-1]*3], point[index[i-1]*3+1], point[index[i-1]*3+2]] 
+                    
+                clockwise = not clockwise
+                GL.draw_triangle(points, colors)
 
-            i += 1
+                # Avança para próximo vértice a ser conectado
+                i += 1
+            # Chegou a -1, pula 3 pontos e faz o index a partir daí
+            i += 3
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
@@ -815,37 +831,50 @@ class GL:
         # textura para o poligono, para isso, use as coordenadas de textura e depois aplique a
         # cor da textura conforme a posição do mapeamento. Dentro da classe GPU já está
         # implementadado um método para a leitura de imagens.
+        i = 2
         clockwise = False
-        
-        for i in range(0, len(coordIndex), 4):
-            if not clockwise:
-                # Pontos definidos para cada vértice do triângulo
-                points = [coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
-                          coord[coordIndex[i+1]*3], coord[coordIndex[i+1]*3+1], coord[coordIndex[i+1]*3+2],
-                          coord[coordIndex[i+2]*3], coord[coordIndex[i+2]*3+1], coord[coordIndex[i+2]*3+2]]
-                if colorPerVertex and color is not None:
-                    # Cores definidos para cada vértice do triângulo
-                    colorsVert = np.asarray([[color[colorIndex[i]*3], color[colorIndex[i+1]*3], color[colorIndex[i+2]*3]],
-                                             [color[colorIndex[i]*3+1], color[colorIndex[i+1]*3+1], color[colorIndex[i+2]*3+1]],
-                                             [color[colorIndex[i]*3+2], color[colorIndex[i+1]*3+2], color[colorIndex[i+2]*3+2]]] )
-            else:
-                # Pontos definidos para cada vértice do triângulo
-                points = [coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
-                          coord[coordIndex[i+2]*3], coord[coordIndex[i+2]*3+1], coord[coordIndex[i+2]*3+2],
-                          coord[coordIndex[i+1]*3], coord[coordIndex[i+1]*3+1], coord[coordIndex[i+1]*3+2]] 
-                if colorPerVertex and color is not None:
-                    # Cores definidos para cada vértice do triângulo
-                    colorsVert = np.asarray([[color[colorIndex[i]*3], color[colorIndex[i+2]*3], color[colorIndex[i+1]*3]],
-                                             [color[colorIndex[i]*3+1], color[colorIndex[i+2]*3+1], color[colorIndex[i+1]*3+1]],
-                                             [color[colorIndex[i]*3+2], color[colorIndex[i+2]*3+2], color[colorIndex[i+1]*3+2]]])
-                
-            clockwise = not clockwise
-            if colorPerVertex and color is not None:
-                GL.draw_triangle(points, colors, color=colorsVert)
-            else:
-                GL.draw_triangle(points, colors)
 
-            # i += 1
+        # print(coord)
+        # print(coordIndex)
+
+        while i < len(coordIndex):
+            while coordIndex[i] != -1:
+                if not clockwise:
+                    # Pontos definidos para cada vértice do triângulo
+                    points = [coord[coordIndex[i-2]*3], coord[coordIndex[i-2]*3+1], coord[coordIndex[i-2]*3+2],
+                              coord[coordIndex[i-1]*3], coord[coordIndex[i-1]*3+1], coord[coordIndex[i-1]*3+2],
+                              coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2]]
+                    if colorPerVertex and color is not None:
+                        # Cores definidos para cada vértice do triângulo
+                        colorsVert = np.asarray([[color[colorIndex[i-2]*3], color[colorIndex[i-1]*3], color[colorIndex[i]*3]],
+                                                [color[colorIndex[i-2]*3+1], color[colorIndex[i-1]*3+1], color[colorIndex[i]*3+1]],
+                                                [color[colorIndex[i-2]*3+2], color[colorIndex[i-1]*3+2], color[colorIndex[i]*3+2]]] )
+                else:
+                    # Pontos definidos para cada vértice do triângulo
+                    points = [coord[coordIndex[i-2]*3], coord[coordIndex[i-2]*3+1], coord[coordIndex[i-2]*3+2],
+                              coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
+                              coord[coordIndex[i-1]*3], coord[coordIndex[i-1]*3+1], coord[coordIndex[i-1]*3+2]] 
+                    if colorPerVertex and color is not None:
+                        # Cores definidos para cada vértice do triângulo
+                        colorsVert = np.asarray([[color[colorIndex[i-2]*3], color[colorIndex[i]*3], color[colorIndex[i-1]*3]],
+                                                [color[colorIndex[i-2]*3+1], color[colorIndex[i]*3+1], color[colorIndex[i-1]*3+1]],
+                                                [color[colorIndex[i-2]*3+2], color[colorIndex[i]*3+2], color[colorIndex[i-1]*3+2]]])
+                        
+                # Inverte sentido de conexão
+                clockwise = not clockwise
+
+               
+                if colorPerVertex and color is not None:
+                    # Desenha triângulo com especificação para interpolação
+                    GL.draw_triangle(points, colors, color=colorsVert)
+                else:
+                    # Desenha triângulo sem especificação para interpolação
+                    GL.draw_triangle(points, colors)
+
+                # Avança para próximo vértice a ser conectado
+                i += 1
+            # Chegou a -1, pula 3 pontos e faz o index a partir daí
+            i += 3
 
         # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("IndexedFaceSet : ")
