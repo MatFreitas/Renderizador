@@ -16,7 +16,6 @@ import gpu          # Simula os recursos de uma GPU
 import math         # Funções matemáticas
 import numpy as np  # Biblioteca do Numpy
 
-
 class GL:
     """Classe que representa a biblioteca gráfica (Graphics Library)."""
 
@@ -288,6 +287,9 @@ class GL:
         # Matriz lookat
         LookAt = np.linalg.inv(np.matmul(T, R))
 
+        # Definindo variável global
+        GL.lookat = LookAt
+
         # print("LookAt: \n", LookAt)
         
         # Perspectiva
@@ -445,25 +447,25 @@ class GL:
     @staticmethod
     def super_sampling(i, j, xa, ya, xb, yb, xc, yc):
         # 2x2 Supersampling 
-        ss = 0
+        i = int(i*2)
+        j = int(j*2)
+        _ss = 0
 
-        # i+1/4, j+1/4
-        if GL.is_inside(i+1.0/4.0, j+1.0/4.0, xa, ya, xb, yb, xc, yc):
-            ss += 1
+        if GL.is_inside(i, j, int(xa*2), int(ya*2), int(xb*2), int(yb*2), int(xc*2), int(yc*2)):
+            _ss += 1
 
-        # i+3/4, j+1/4
-        if GL.is_inside(i+3.0/4.0, j+1.0/4.0, xa, ya, xb, yb, xc, yc):
-            ss += 1
+        if GL.is_inside(i+1, j, int(xa*2), int(ya*2), int(xb*2), int(yb*2), int(xc*2), int(yc*2)):
+            _ss += 1
 
-        # i+1/4, j+3/4
-        if GL.is_inside(i+1.0/4.0, j+3.0/4.0, xa, ya, xb, yb, xc, yc):
-            ss += 1
+        if GL.is_inside(i, j+1, int(xa*2), int(ya*2), int(xb*2), int(yb*2), int(xc*2), int(yc*2)):
+            _ss += 1
 
-        # i+3/4, j+3/4
-        if GL.is_inside(i+3.0/4.0, j+3.0/4.0, xa, ya, xb, yb, xc, yc):
-            ss += 1
+        if GL.is_inside(i+1, j+1, int(xa*2), int(ya*2), int(xb*2), int(yb*2), int(xc*2), int(yc*2)):
+            _ss += 1
 
-        return ss/4.0
+        _ss /= 4
+
+        return _ss
         
     @staticmethod
     def draw_pixel_custom_2D(i, j, xa, ya, xb, yb, xc, yc, color, colors, ss=1):
@@ -528,19 +530,11 @@ class GL:
                     r *= (1-colors['transparency'])*255
                     g *= (1-colors['transparency'])*255
                     b *= (1-colors['transparency'])*255
-                    
-                    if r > 255.0:
-                        r = 255.0
-                    if r < 0.0:
-                        r = 0.0
-                    if g > 255.0:
-                        g = 255.0
-                    if g < 0.0:
-                        g = 0.0
-                    if b > 255.0:
-                        b = 255.0
-                    if b < 0.0:
-                        b = 0.0
+
+                    # Seta que as cores estejam no intervalo entre 0 e 255
+                    r = max(min(r, 255.0), 0.0)
+                    g = max(min(g, 255.0), 0.0)
+                    b = max(min(b, 255.0), 0.0)
 
                     new_color = [r, g, b]
 
@@ -556,12 +550,12 @@ class GL:
 
                     # Previous Color
                     prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
-                    
+
                     # New Color
-                    r = colors['emissiveColor'][0]*(1-colors['transparency'])
-                    g = colors['emissiveColor'][1]*(1-colors['transparency'])
-                    b = colors['emissiveColor'][2]*(1-colors['transparency'])
-                    new_color = [r*255, g*255, b*255]
+                    r = colors['emissiveColor'][0]*(1-colors['transparency'])*255.0
+                    g = colors['emissiveColor'][1]*(1-colors['transparency'])*255.0
+                    b = colors['emissiveColor'][2]*(1-colors['transparency'])*255.0
+                    new_color = [r, g, b]
 
                     # Combinando as cores
                     r, g, b = prev_color + new_color
@@ -570,7 +564,7 @@ class GL:
                     gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
 
     @staticmethod
-    def draw_triangle(points, colors, color=None, two_dimensional=None):
+    def draw_triangle(points, colors, color=None, two_dimensional=None, transparency=False):
         if two_dimensional is None:
             # Se for 3D, teremos nove valores (3 para cada vértice)
             total_coord = 9
@@ -599,27 +593,39 @@ class GL:
                                         [az, bz, cz],
                                         [1.0, 1.0, 1.0]])
 
-                # Multiplicando por matriz de transform e do viewpoint            
+        
+                # Multiplicando por matriz de transform            
                 coordinates = np.matmul(GL.model, coordinates)
+
+                # Obtendo matriz do Z para a deformação de perspectiva
+                temp_Z = np.matmul(GL.lookat, coordinates)
+
+                # Multiplicando por matriz de view
                 coordinates = np.matmul(GL.view, coordinates)
 
                 # Dividindo os valores pela última linha (não-homogênea)
                 coordinates /= coordinates[-1]
+                temp_Z /= temp_Z[-1]
 
                 # Criando lista de pontos 
                 points = []
 
-                # Criando lista para guardas os valores Z
+                # Criando lista para guardar os valores Z
                 z_coord = []
+
+                # Criando lista para guardar valores Z NDC (transparência)
+                z_NDC = []
+
                 for i in range(3):
                     points.append(coordinates[0][i])
                     points.append(coordinates[1][i])
-                    z_coord.append(coordinates[2][i])
+                    z_NDC.append(coordinates[2][i])
+                    z_coord.append(temp_Z[2][i])
+                        
 
 
             else:
                 # Criando lista de pontos 
-                # points.append(curr_vertices[i] for i in range(6))
                 points = []
                 points.append(curr_vertices[0])
                 points.append(curr_vertices[1])
@@ -633,8 +639,11 @@ class GL:
             xc, yc = points[4], points[5]
 
             if two_dimensional is None:
-                za, zb, zc = z_coord[0], z_coord[1], z_coord[2]
-
+                if not transparency:
+                    za, zb, zc = z_coord[0], z_coord[1], z_coord[2]
+                else:
+                    za, zb, zc = z_NDC[0], z_NDC[1], z_NDC[2]
+                    
             # Ordem de conexão 
             connectionPoints = [xa, ya, xb, yb, xc, yc, xa, ya]
 
@@ -658,7 +667,7 @@ class GL:
                     else:
                         # Anti aliasing (apenas para exemplo 2D)
                         _ss = GL.super_sampling(u1, v1, xa, ya, xb, yb, xc, yc)
-                        GL.draw_pixel_custom_2D(u1, v1, xa, ya, xb, yb, xc, yc, color, colors, ss=_ss)
+                        GL.draw_pixel_custom_2D(u1, v1, xa, ya, xb, yb, xc, yc, color, colors, ss=_ss)                        
 
                     e2 = 2*err
                     if e2 >= dy:

@@ -42,6 +42,7 @@ class Renderizador:
 
         # Cria uma (1) posição de FrameBuffer na GPU
         fbo = gpu.GPU.gen_framebuffers(1)
+        fbo_ss = gpu.GPU.gen_framebuffers(1)
 
         # Define o atributo FRONT como o FrameBuffe principal
         self.framebuffers["FRONT"] = fbo[0]
@@ -63,6 +64,18 @@ class Renderizador:
             self.width,
             self.height
         )
+
+        # # Framebuffer para supersampling
+        #  self.framebuffers["SUPERSAMPLING"] = fbo_ss[0]
+        
+        # # Memória de Framebuffer para canal de cores do Supersampling
+        # gpu.GPU.framebuffer_storage(
+        #     self.framebuffers["SUPERSAMPLING"],
+        #     gpu.GPU.COLOR_ATTACHMENT,
+        #     gpu.GPU.RGB8,
+        #     self.width*2,
+        #     self.height*2
+        # )
 
         # Descomente as seguintes linhas se for usar um Framebuffer para profundidade
         gpu.GPU.framebuffer_storage(
