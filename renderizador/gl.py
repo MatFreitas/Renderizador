@@ -180,7 +180,7 @@ class GL:
         # inicialmente, para o TriangleSet, o desenho das linhas com a cor emissiva
         # (emissiveColor), conforme implementar novos materias você deverá suportar outros
         # tipos de cores.
-        GL.draw_triangle(point, colors)
+        GL.draw_triangle(point, colors, transparency=True)
 
         # print("View (print triangleSet): \n", GL.view)
         # print("Model (print triangleSet): \n", GL.model)
