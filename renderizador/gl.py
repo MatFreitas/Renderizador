@@ -838,27 +838,29 @@ class GL:
         # print(coordIndex)
 
         while i < len(coordIndex):
+            # p0
+            idx_i = i-2
             while coordIndex[i] != -1:
                 if not clockwise:
                     # Pontos definidos para cada vértice do triângulo
-                    points = [coord[coordIndex[i-2]*3], coord[coordIndex[i-2]*3+1], coord[coordIndex[i-2]*3+2],
+                    points = [coord[coordIndex[idx_i]*3], coord[coordIndex[idx_i]*3+1], coord[coordIndex[idx_i]*3+2],
                               coord[coordIndex[i-1]*3], coord[coordIndex[i-1]*3+1], coord[coordIndex[i-1]*3+2],
                               coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2]]
                     if colorPerVertex and color is not None:
                         # Cores definidos para cada vértice do triângulo
-                        colorsVert = np.asarray([[color[colorIndex[i-2]*3], color[colorIndex[i-1]*3], color[colorIndex[i]*3]],
-                                                [color[colorIndex[i-2]*3+1], color[colorIndex[i-1]*3+1], color[colorIndex[i]*3+1]],
-                                                [color[colorIndex[i-2]*3+2], color[colorIndex[i-1]*3+2], color[colorIndex[i]*3+2]]] )
+                        colorsVert = np.asarray([[color[colorIndex[idx_i]*3], color[colorIndex[i-1]*3], color[colorIndex[i]*3]],
+                                                [color[colorIndex[idx_i]*3+1], color[colorIndex[i-1]*3+1], color[colorIndex[i]*3+1]],
+                                                [color[colorIndex[idx_i]*3+2], color[colorIndex[i-1]*3+2], color[colorIndex[i]*3+2]]] )
                 else:
                     # Pontos definidos para cada vértice do triângulo
-                    points = [coord[coordIndex[i-2]*3], coord[coordIndex[i-2]*3+1], coord[coordIndex[i-2]*3+2],
+                    points = [coord[coordIndex[idx_i]*3], coord[coordIndex[idx_i]*3+1], coord[coordIndex[idx_i]*3+2],
                               coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
                               coord[coordIndex[i-1]*3], coord[coordIndex[i-1]*3+1], coord[coordIndex[i-1]*3+2]] 
                     if colorPerVertex and color is not None:
                         # Cores definidos para cada vértice do triângulo
-                        colorsVert = np.asarray([[color[colorIndex[i-2]*3], color[colorIndex[i]*3], color[colorIndex[i-1]*3]],
-                                                [color[colorIndex[i-2]*3+1], color[colorIndex[i]*3+1], color[colorIndex[i-1]*3+1]],
-                                                [color[colorIndex[i-2]*3+2], color[colorIndex[i]*3+2], color[colorIndex[i-1]*3+2]]])
+                        colorsVert = np.asarray([[color[colorIndex[idx_i]*3], color[colorIndex[i]*3], color[colorIndex[i-1]*3]],
+                                                [color[colorIndex[idx_i]*3+1], color[colorIndex[i]*3+1], color[colorIndex[i-1]*3+1]],
+                                                [color[colorIndex[idx_i]*3+2], color[colorIndex[i]*3+2], color[colorIndex[i-1]*3+2]]])
                         
                 # Inverte sentido de conexão
                 clockwise = not clockwise
