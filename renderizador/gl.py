@@ -801,13 +801,41 @@ class GL:
         # e Z, respectivamente, e cada valor do tamanho deve ser maior que zero. Para desenha
         # essa caixa você vai provavelmente querer tesselar ela em triângulos, para isso
         # encontre os vértices e defina os triângulos.
+        print(size)
+
+
+        p1 = [ size[0]/2.0, -size[1]/2.0, -size[2]/2.0]
+        p2 = [-size[0]/2.0, -size[1]/2.0, -size[2]/2.0]
+        p3 = [ size[0]/2.0,  size[1]/2.0, -size[2]/2.0]
+        p4 = [-size[0]/2.0,  size[1]/2.0, -size[2]/2.0]
+
+
+        p5 = [ size[0]/2.0, -size[1]/2.0,  size[2]/2.0]
+        p6 = [-size[0]/2.0, -size[1]/2.0,  size[2]/2.0]
+        p7 = [ size[0]/2.0,  size[1]/2.0,  size[2]/2.0]
+        p8 = [-size[0]/2.0,  size[1]/2.0,  size[2]/2.0]
+
+        vertices = p1 + p2 + p3 + \
+                   p3 + p2 + p4 + \
+                   p5 + p6 + p7 + \
+                   p7 + p6 + p8 + \
+                   p1 + p5 + p3 + \
+                   p3 + p5 + p7 + \
+                   p2 + p6 + p4 + \
+                   p4 + p6 + p8 + \
+                   p3 + p4 + p7 + \
+                   p7 + p4 + p8 + \
+                   p1 + p2 + p5 + \
+                   p5 + p2 + p6
+
+        GL.draw_triangle(vertices, colors)
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Box : size = {0}".format(size)) # imprime no terminal pontos
-        print("Box : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("Box : size = {0}".format(size)) # imprime no terminal pontos
+        # print("Box : colors = {0}".format(colors)) # imprime no terminal as cores
 
-        # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        # # Exemplo de desenho de um pixel branco na coordenada 10, 10
+        # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
     
     @staticmethod
     def indexedFaceSet(coord, coordIndex, colorPerVertex, color, colorIndex,
@@ -905,9 +933,45 @@ class GL:
         # precisar tesselar ela em triângulos, para isso encontre os vértices e defina
         # os triângulos.
 
+        # Define o número de pontos a serem gerados
+        num_points = 20
+
+        # Gera valores equidistantes para o ângulo polar e o ângulo azimutal
+        theta_values = [math.pi * i / num_points for i in range(num_points)]
+        phi_values =   [2 * math.pi * i / num_points for i in range(num_points)]
+
+        # Gera as coordenadas cartesianas de cada ponto
+        globe = [[0]*num_points for i in range(num_points)]
+        for theta in range(len(theta_values)):
+            for phi in range(len(phi_values)):
+                x = radius * math.sin(theta_values[theta]) * math.cos(phi_values[phi])
+                y = radius * math.sin(theta_values[theta]) * math.sin(phi_values[phi])
+                z = radius * math.cos(theta_values[theta])
+                # points.append(x)
+                # points.append(y)
+                # points.append(z)
+                globe[theta][phi] = (x, y, z)
+
+        # Conectando pontos
+        for theta in range(len(theta_values)-1):
+            for phi in range(len(phi_values)-1):
+                # Desenhando dois triângulos (formando um retalho da esfera)
+                x1, y1, z1 = globe[theta][phi]
+                x2, y2, z2 = globe[theta][phi+1]
+                x3, y3, z3 = globe[theta+1][phi]
+                GL.draw_triangle([x1, y1, z1, x2, y2, z2, x3, y3, z3], colors)
+
+                x1, y1, z1 = globe[theta+1][phi]
+                x2, y2, z2 = globe[theta+1][phi+1]
+                x3, y3, z3 = globe[theta][phi+1]
+                GL.draw_triangle([x1, y1, z1, x2, y2, z2, x3, y3, z3], colors)
+
+
+        # GL.draw_triangle(points, colors)
+
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Sphere : radius = {0}".format(radius)) # imprime no terminal o raio da esfera
-        print("Sphere : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("Sphere : radius = {0}".format(radius)) # imprime no terminal o raio da esfera
+        # print("Sphere : colors = {0}".format(colors)) # imprime no terminal as cores
 
     @staticmethod
     def navigationInfo(headlight):
