@@ -507,7 +507,7 @@ class GL:
                     gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r*255*ss, g*255*ss, b*255*ss]) 
 
     @staticmethod
-    def draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors, ss=1):
+    def draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors, ss=1, texture_3D=None):
         """Função para desenhar um pixel em 3D"""
 
         # Cálculo das interpolações
@@ -548,23 +548,38 @@ class GL:
                     # Define coordenada Z como ponto mais próximo no Framebuffer de profundidade
                     gpu.GPU.draw_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F, [Z])
 
-                    # Previous Color
-                    prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
+                    if texture_3D is None:
+                        # Previous Color
+                        prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
 
-                    # New Color
-                    r = colors['emissiveColor'][0]*(1-colors['transparency'])*255.0
-                    g = colors['emissiveColor'][1]*(1-colors['transparency'])*255.0
-                    b = colors['emissiveColor'][2]*(1-colors['transparency'])*255.0
-                    new_color = [r, g, b]
+                        # New Color
+                        r = colors['emissiveColor'][0]*(1-colors['transparency'])*255.0
+                        g = colors['emissiveColor'][1]*(1-colors['transparency'])*255.0
+                        b = colors['emissiveColor'][2]*(1-colors['transparency'])*255.0
+                        new_color = [r, g, b]
 
-                    # Combinando as cores
-                    r, g, b = prev_color + new_color
+                        # Combinando as cores
+                        r, g, b = prev_color + new_color
 
-                    # r, g, b = color_buffer
-                    gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
+                        # r, g, b = color_buffer
+                        gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
+                    else:
+                        u = (alpha*texture_3D[0] + beta*texture_3D[2] + gama*texture_3D[4])*(len(GL.image_texture)-1)
+                        v = (alpha*texture_3D[1] + beta*texture_3D[3] + gama*texture_3D[5])*(len(GL.image_texture)-1)
+
+                        # Seta que as cores estejam no intervalo entre 0 e 255
+                        u = max(min(u, 255.0), 0.0)
+                        v = max(min(v, 255.0), 0.0)
+                        
+                        r = GL.image_texture[round(v)][round(u)][0]
+                        g = GL.image_texture[round(v)][round(u)][1]
+                        b = GL.image_texture[round(v)][round(u)][2]
+
+                        # r, g, b = color_buffer
+                        gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
 
     @staticmethod
-    def draw_triangle(points, colors, color=None, two_dimensional=None, transparency=False):
+    def draw_triangle(points, colors, color=None, two_dimensional=None, transparency=False, texture=None):
         if two_dimensional is None:
             # Se for 3D, teremos nove valores (3 para cada vértice)
             total_coord = 9
@@ -663,7 +678,10 @@ class GL:
                 while True:
                     # Desenha pixel (3D/2D)
                     if two_dimensional is None:
-                        GL.draw_pixel_custom_3D(u1, v1, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors)
+                        if texture is None:
+                            GL.draw_pixel_custom_3D(u1, v1, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors)
+                        else:
+                            GL.draw_pixel_custom_3D(u1, v1, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors, texture_3D=texture)
                     else:
                         # Anti aliasing (apenas para exemplo 2D)
                         _ss = GL.super_sampling(u1, v1, xa, ya, xb, yb, xc, yc)
@@ -694,7 +712,10 @@ class GL:
                     if GL.is_inside(i, j, xa, ya, xb, yb, xc, yc):
                         # Desenha pixel (3D/2D)
                         if two_dimensional is None:
-                            GL.draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors)
+                            if texture is None:
+                                GL.draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors)
+                            else:
+                                GL.draw_pixel_custom_3D(i, j, xa, ya, za, xb, yb, zb, xc, yc, zc, color, colors, texture_3D=texture)
                         else:
                             # Anti aliasing (apenas para exemplo 2D)
                             _ss = GL.super_sampling(i, j, xa, ya, xb, yb, xc, yc)
@@ -862,8 +883,10 @@ class GL:
         i = 2
         clockwise = False
 
-        # print(coord)
-        # print(coordIndex)
+        print(coordIndex)
+        # print(colorIndex)
+        print(texCoord)
+        print(texCoordIndex)
 
         while i < len(coordIndex):
             # p0
@@ -879,6 +902,10 @@ class GL:
                         colorsVert = np.asarray([[color[colorIndex[idx_i]*3], color[colorIndex[i-1]*3], color[colorIndex[i]*3]],
                                                 [color[colorIndex[idx_i]*3+1], color[colorIndex[i-1]*3+1], color[colorIndex[i]*3+1]],
                                                 [color[colorIndex[idx_i]*3+2], color[colorIndex[i-1]*3+2], color[colorIndex[i]*3+2]]] )
+                    if texCoord is not None:
+                        tex_coords = [texCoord[texCoordIndex[idx_i]*2], texCoord[texCoordIndex[idx_i]*2+1],
+                                      texCoord[texCoordIndex[i-1]*2],   texCoord[texCoordIndex[i-1]*2+1],  
+                                      texCoord[texCoordIndex[i]*2],     texCoord[texCoordIndex[i]*2+1]]
                 else:
                     # Pontos definidos para cada vértice do triângulo
                     points = [coord[coordIndex[idx_i]*3], coord[coordIndex[idx_i]*3+1], coord[coordIndex[idx_i]*3+2],
@@ -890,6 +917,11 @@ class GL:
                                                 [color[colorIndex[idx_i]*3+1], color[colorIndex[i]*3+1], color[colorIndex[i-1]*3+1]],
                                                 [color[colorIndex[idx_i]*3+2], color[colorIndex[i]*3+2], color[colorIndex[i-1]*3+2]]])
                         
+                    if texCoord is not None:
+                        tex_coords = [texCoord[texCoordIndex[idx_i]*2], texCoord[texCoordIndex[idx_i]*2+1],
+                                      texCoord[texCoordIndex[i]*2],     texCoord[texCoordIndex[i]*2+1],  
+                                      texCoord[texCoordIndex[i-1]*2],   texCoord[texCoordIndex[i-1]*2+1]]
+                        
                 # Inverte sentido de conexão
                 clockwise = not clockwise
 
@@ -897,6 +929,9 @@ class GL:
                 if colorPerVertex and color is not None:
                     # Desenha triângulo com especificação para interpolação
                     GL.draw_triangle(points, colors, color=colorsVert)
+                elif texCoord is not None:
+                    GL.image_texture = gpu.GPU.load_texture(current_texture[0])
+                    GL.draw_triangle(points, colors, texture=tex_coords)
                 else:
                     # Desenha triângulo sem especificação para interpolação
                     GL.draw_triangle(points, colors)
@@ -906,20 +941,21 @@ class GL:
             # Chegou a -1, pula 3 pontos e faz o index a partir daí
             i += 3
 
+
         # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("IndexedFaceSet : ")
-        # if coord:
-        #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
-        # print("colorPerVertex = {0}".format(colorPerVertex))
-        # if colorPerVertex and color and colorIndex:
-        #     print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
-        # if texCoord and texCoordIndex:
-        #     print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
-        # if current_texture:
-        #     image = gpu.GPU.load_texture(current_texture[0])
-        #     print("\t Matriz com image = {0}".format(image))
-        #     print("\t Dimensões da image = {0}".format(image.shape))
-        # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
+        print("IndexedFaceSet : ")
+        if coord:
+            print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
+        print("colorPerVertex = {0}".format(colorPerVertex))
+        if colorPerVertex and color and colorIndex:
+            print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
+        if texCoord and texCoordIndex:
+            print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
+        if current_texture:
+            image = gpu.GPU.load_texture(current_texture[0])
+            print("\t Matriz com image = {0}".format(image))
+            print("\t Dimensões da image = {0}".format(image.shape))
+        print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
 
         # # Exemplo de desenho de um pixel branco na coordenada 10, 10
         # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
@@ -947,9 +983,6 @@ class GL:
                 x = radius * math.sin(theta_values[theta]) * math.cos(phi_values[phi])
                 y = radius * math.sin(theta_values[theta]) * math.sin(phi_values[phi])
                 z = radius * math.cos(theta_values[theta])
-                # points.append(x)
-                # points.append(y)
-                # points.append(z)
                 globe[theta][phi] = (x, y, z)
 
         # Conectando pontos
