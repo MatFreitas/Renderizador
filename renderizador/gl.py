@@ -564,16 +564,16 @@ class GL:
                         # r, g, b = color_buffer
                         gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
                     else:
-                        u = (alpha*texture_3D[0] + beta*texture_3D[2] + gama*texture_3D[4])*(len(GL.image_texture)-1)
-                        v = (alpha*texture_3D[1] + beta*texture_3D[3] + gama*texture_3D[5])*(len(GL.image_texture)-1)
+                        u = Z*(alpha*texture_3D[0]/za + beta*texture_3D[2]/zb + gama*texture_3D[4]/zc)*(len(GL.image_texture))
+                        v = Z*(alpha*texture_3D[1]/za + beta*texture_3D[3]/zb + gama*texture_3D[5]/zc)*(len(GL.image_texture))
 
                         # Seta que as cores estejam no intervalo entre 0 e 255
-                        u = max(min(u, 255.0), 0.0)
-                        v = max(min(v, 255.0), 0.0)
+                        u =  max(min(u, 255.0), 0.0)
+                        v = -max(min(v, 255.0), 0.0)
                         
-                        r = GL.image_texture[round(v)][round(u)][0]
-                        g = GL.image_texture[round(v)][round(u)][1]
-                        b = GL.image_texture[round(v)][round(u)][2]
+                        r = GL.image_texture[int(u)][int(v)][0]
+                        g = GL.image_texture[int(u)][int(v)][1]
+                        b = GL.image_texture[int(u)][int(v)][2]
 
                         # r, g, b = color_buffer
                         gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
@@ -883,10 +883,10 @@ class GL:
         i = 2
         clockwise = False
 
-        print(coordIndex)
-        # print(colorIndex)
+        
         print(texCoord)
         print(texCoordIndex)
+        print(current_texture)
 
         while i < len(coordIndex):
             # p0
