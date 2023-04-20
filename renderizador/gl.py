@@ -15,6 +15,9 @@ import time         # Para operações com tempo
 import gpu          # Simula os recursos de uma GPU
 import math         # Funções matemáticas
 import numpy as np  # Biblioteca do Numpy
+from skimage.measure import block_reduce
+# Pillow
+from PIL import Image
 
 class GL:
     """Classe que representa a biblioteca gráfica (Graphics Library)."""
@@ -564,16 +567,62 @@ class GL:
                         # r, g, b = color_buffer
                         gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
                     else:
+                        # (u,v)00
                         u = Z*(alpha*texture_3D[0]/za + beta*texture_3D[2]/zb + gama*texture_3D[4]/zc)*(len(GL.image_texture))
                         v = Z*(alpha*texture_3D[1]/za + beta*texture_3D[3]/zb + gama*texture_3D[5]/zc)*(len(GL.image_texture))
 
-                        # Seta que as cores estejam no intervalo entre 0 e 255
+                        # Seta que as texturas estejam no intervalo entre 0 e 255
                         u =  max(min(u, 255.0), 0.0)
                         v = -max(min(v, 255.0), 0.0)
-                        
-                        r = GL.image_texture[int(u)][int(v)][0]
-                        g = GL.image_texture[int(u)][int(v)][1]
-                        b = GL.image_texture[int(u)][int(v)][2]
+
+                        # (u,v)10
+                        # Cálculo das interpolações
+                        alpha, beta, gama = GL.baricentric(i, j-1, xa, ya, xb, yb, xc, yc)
+
+                        # Cálculo do Z interpolado do ponto amostrado 
+                        Z = 1/(alpha/za + beta/zb + gama/zc)
+
+                        u10 = Z*(alpha*texture_3D[0]/za + beta*texture_3D[2]/zb + gama*texture_3D[4]/zc)*(len(GL.image_texture))
+                        v10 = Z*(alpha*texture_3D[1]/za + beta*texture_3D[3]/zb + gama*texture_3D[5]/zc)*(len(GL.image_texture))
+
+                        # Seta que as texturas estejam no intervalo entre 0 e 255
+                        u10 =  max(min(u10, 255.0), 0.0)
+                        v10 = -max(min(v10, 255.0), 0.0)
+
+                        # u01
+                        # Cálculo das interpolações
+                        alpha, beta, gama = GL.baricentric(i+1, j, xa, ya, xb, yb, xc, yc)
+
+                        # Cálculo do Z interpolado do ponto amostrado 
+                        Z = 1/(alpha/za + beta/zb + gama/zc)
+
+                        u01 = Z*(alpha*texture_3D[0]/za + beta*texture_3D[2]/zb + gama*texture_3D[4]/zc)*(len(GL.image_texture))
+                        v01 = Z*(alpha*texture_3D[1]/za + beta*texture_3D[3]/zb + gama*texture_3D[5]/zc)*(len(GL.image_texture))
+
+                        # Seta que as texturas estejam no intervalo entre 0 e 255
+                        u01 =  max(min(u01, 255.0), 0.0)
+                        v01 = -max(min(v01, 255.0), 0.0)
+
+                        # # Derivadas parciais
+                        dudx = u10-u
+                        dvdx = v10-v
+                        dudy = u01-u
+                        dvdy = v01-v
+
+                        # Calculando área do texel com Jacobiano
+                        L = max(math.sqrt(dudx**2 + dvdx**2), math.sqrt(dudy**2 + dvdy**2))
+                        D = abs(int(math.log(L, 2))) if L != 0 else 0
+
+                        print(D)
+
+                        r = GL.mip_map[D][int(u/(2**D))][int(v/(2**D))][0]
+                        g = GL.mip_map[D][int(u/(2**D))][int(v/(2**D))][1]
+                        b = GL.mip_map[D][int(u/(2**D))][int(v/(2**D))][2]
+
+                        # Descomentar para usar sem mip map 
+                        # r = GL.image_texture[int(u)][int(v)][0]
+                        # g = GL.image_texture[int(u)][int(v)][1]
+                        # b = GL.image_texture[int(u)][int(v)][2]
 
                         # r, g, b = color_buffer
                         gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
@@ -880,14 +929,27 @@ class GL:
         # textura para o poligono, para isso, use as coordenadas de textura e depois aplique a
         # cor da textura conforme a posição do mapeamento. Dentro da classe GPU já está
         # implementadado um método para a leitura de imagens.
-        i = 2
-        clockwise = False
-
-        
         print(texCoord)
         print(texCoordIndex)
         print(current_texture)
 
+        if current_texture:
+            # Definindo variável global de textura
+            GL.image_texture = gpu.GPU.load_texture(current_texture[0])
+            
+            # Criando lista de níveis do mip map
+            image = GL.image_texture
+            mip_mapping = [image]
+            for i in range(int(math.log(image.shape[0], 2))):
+                # Realiza o downsampling na imagem e adiciona à lista
+                image = block_reduce(image, block_size=(2, 2, 1), func=np.mean)
+                mip_mapping.append(image)
+
+            # Definindo global mip mapping
+            GL.mip_map = mip_mapping
+
+        i = 2
+        clockwise = False
         while i < len(coordIndex):
             # p0
             idx_i = i-2
@@ -895,32 +957,32 @@ class GL:
                 if not clockwise:
                     # Pontos definidos para cada vértice do triângulo
                     points = [coord[coordIndex[idx_i]*3], coord[coordIndex[idx_i]*3+1], coord[coordIndex[idx_i]*3+2],
-                              coord[coordIndex[i-1]*3], coord[coordIndex[i-1]*3+1], coord[coordIndex[i-1]*3+2],
-                              coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2]]
+                                coord[coordIndex[i-1]*3],   coord[coordIndex[i-1]*3+1],   coord[coordIndex[i-1]*3+2],
+                                  coord[coordIndex[i]*3],     coord[coordIndex[i]*3+1],     coord[coordIndex[i]*3+2]]
                     if colorPerVertex and color is not None:
                         # Cores definidos para cada vértice do triângulo
-                        colorsVert = np.asarray([[color[colorIndex[idx_i]*3], color[colorIndex[i-1]*3], color[colorIndex[i]*3]],
-                                                [color[colorIndex[idx_i]*3+1], color[colorIndex[i-1]*3+1], color[colorIndex[i]*3+1]],
-                                                [color[colorIndex[idx_i]*3+2], color[colorIndex[i-1]*3+2], color[colorIndex[i]*3+2]]] )
+                        colorsVert = np.asarray([[  color[colorIndex[idx_i]*3],   color[colorIndex[i-1]*3],   color[colorIndex[i]*3]],
+                                                 [color[colorIndex[idx_i]*3+1], color[colorIndex[i-1]*3+1],  color[colorIndex[i]*3+1]],
+                                                 [color[colorIndex[idx_i]*3+2], color[colorIndex[i-1]*3+2], color[colorIndex[i]*3+2]]])
                     if texCoord is not None:
                         tex_coords = [texCoord[texCoordIndex[idx_i]*2], texCoord[texCoordIndex[idx_i]*2+1],
-                                      texCoord[texCoordIndex[i-1]*2],   texCoord[texCoordIndex[i-1]*2+1],  
-                                      texCoord[texCoordIndex[i]*2],     texCoord[texCoordIndex[i]*2+1]]
+                                        texCoord[texCoordIndex[i-1]*2],   texCoord[texCoordIndex[i-1]*2+1],  
+                                          texCoord[texCoordIndex[i]*2],     texCoord[texCoordIndex[i]*2+1]]
                 else:
                     # Pontos definidos para cada vértice do triângulo
                     points = [coord[coordIndex[idx_i]*3], coord[coordIndex[idx_i]*3+1], coord[coordIndex[idx_i]*3+2],
-                              coord[coordIndex[i]*3], coord[coordIndex[i]*3+1], coord[coordIndex[i]*3+2],
-                              coord[coordIndex[i-1]*3], coord[coordIndex[i-1]*3+1], coord[coordIndex[i-1]*3+2]] 
+                                  coord[coordIndex[i]*3],     coord[coordIndex[i]*3+1],     coord[coordIndex[i]*3+2],
+                                coord[coordIndex[i-1]*3],   coord[coordIndex[i-1]*3+1],   coord[coordIndex[i-1]*3+2]] 
                     if colorPerVertex and color is not None:
                         # Cores definidos para cada vértice do triângulo
-                        colorsVert = np.asarray([[color[colorIndex[idx_i]*3], color[colorIndex[i]*3], color[colorIndex[i-1]*3]],
-                                                [color[colorIndex[idx_i]*3+1], color[colorIndex[i]*3+1], color[colorIndex[i-1]*3+1]],
-                                                [color[colorIndex[idx_i]*3+2], color[colorIndex[i]*3+2], color[colorIndex[i-1]*3+2]]])
+                        colorsVert = np.asarray([[  color[colorIndex[idx_i]*3],   color[colorIndex[i]*3],    color[colorIndex[i-1]*3]],
+                                                 [color[colorIndex[idx_i]*3+1], color[colorIndex[i]*3+1],  color[colorIndex[i-1]*3+1]],
+                                                 [color[colorIndex[idx_i]*3+2], color[colorIndex[i]*3+2], color[colorIndex[i-1]*3+2]]])
                         
                     if texCoord is not None:
                         tex_coords = [texCoord[texCoordIndex[idx_i]*2], texCoord[texCoordIndex[idx_i]*2+1],
-                                      texCoord[texCoordIndex[i]*2],     texCoord[texCoordIndex[i]*2+1],  
-                                      texCoord[texCoordIndex[i-1]*2],   texCoord[texCoordIndex[i-1]*2+1]]
+                                          texCoord[texCoordIndex[i]*2],     texCoord[texCoordIndex[i]*2+1],  
+                                        texCoord[texCoordIndex[i-1]*2],   texCoord[texCoordIndex[i-1]*2+1]]
                         
                 # Inverte sentido de conexão
                 clockwise = not clockwise
@@ -930,7 +992,6 @@ class GL:
                     # Desenha triângulo com especificação para interpolação
                     GL.draw_triangle(points, colors, color=colorsVert)
                 elif texCoord is not None:
-                    GL.image_texture = gpu.GPU.load_texture(current_texture[0])
                     GL.draw_triangle(points, colors, texture=tex_coords)
                 else:
                     # Desenha triângulo sem especificação para interpolação
@@ -941,21 +1002,20 @@ class GL:
             # Chegou a -1, pula 3 pontos e faz o index a partir daí
             i += 3
 
-
         # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("IndexedFaceSet : ")
-        if coord:
-            print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
-        print("colorPerVertex = {0}".format(colorPerVertex))
-        if colorPerVertex and color and colorIndex:
-            print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
-        if texCoord and texCoordIndex:
-            print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
-        if current_texture:
-            image = gpu.GPU.load_texture(current_texture[0])
-            print("\t Matriz com image = {0}".format(image))
-            print("\t Dimensões da image = {0}".format(image.shape))
-        print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
+        # print("IndexedFaceSet : ")
+        # if coord:
+        #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
+        # print("colorPerVertex = {0}".format(colorPerVertex))
+        # if colorPerVertex and color and colorIndex:
+        #     print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
+        # if texCoord and texCoordIndex:
+        #     print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
+        # if current_texture:
+        #     image = gpu.GPU.load_texture(current_texture[0])
+        #     print("\t Matriz com image = {0}".format(image))
+        #     print("\t Dimensões da image = {0}".format(image.shape))
+        # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
 
         # # Exemplo de desenho de um pixel branco na coordenada 10, 10
         # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
