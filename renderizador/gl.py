@@ -40,6 +40,9 @@ class GL:
                              [0.0, 1.0, 0.0, 0.0],
                              [0.0, 0.0, 1.0, 0.0],
                              [0.0, 0.0, 0.0, 1.0]])]
+        
+        GL.head_Light = {}
+        GL.directional_Light = {}
 
     @staticmethod
     def polypoint2D(point, colors):
@@ -424,10 +427,10 @@ class GL:
         """Função para calcular coordenadas baricêntricas"""
 
         # alpha = L_BC(x, y)/L_BC(xA, yA)
-        alpha = GL.L(x, y, xb, yb, xc, yc)/GL.L(xa, ya, xb, yb, xc, yc)
+        alpha = GL.L(x, y, xb, yb, xc, yc)/(GL.L(xa, ya, xb, yb, xc, yc)+0.000001)
 
         # beta = L_CA(x, y)/L_CA(xb, yb)
-        beta = GL.L(x, y, xc, yc, xa, ya)/GL.L(xb, yb, xc, yc, xa, ya)
+        beta = GL.L(x, y, xc, yc, xa, ya)/(GL.L(xb, yb, xc, yc, xa, ya)+0.000001)
 
         # gama = L_AB(x, y)/L_AB(xc, yc)
         # gama = L(x, y, xa, ya, xb, yb)/L(xc, yc, xa, ya, xb, yb)
@@ -551,22 +554,123 @@ class GL:
                     # Define coordenada Z como ponto mais próximo no Framebuffer de profundidade
                     gpu.GPU.draw_pixel([i, j], gpu.GPU.DEPTH_COMPONENT32F, [Z])
 
-                    if texture_3D is None:
-                        # Previous Color
-                        prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
+                    # Ilumination info
+                    if GL.directional_Light:
+                        # Ponto na geometria
+                        # x, y, z = Z*(alpha*np.array([xa, ya, za])/za + \
+                        #               beta*np.array([xb, yb, zb])/zb + \
+                        #               gama*np.array([xc, yc, zc])/zc)
+                        
+                        # Cálculo do vetor normalizado do ponto na geometria
+                        # até a posição do usuário
+                        # v = np.array([x, y, z]) - np.array([0, 0, 0])
+                        # v = v/np.linalg.norm(v)
 
-                        # New Color
-                        r = colors['emissiveColor'][0]*(1-colors['transparency'])*255.0
-                        g = colors['emissiveColor'][1]*(1-colors['transparency'])*255.0
-                        b = colors['emissiveColor'][2]*(1-colors['transparency'])*255.0
-                        new_color = [r, g, b]
+                        # Vetor normalizado pto. geometria -> pos. usuário
+                        v = np.array([0.0, 0.0, 1.0]) # aproximação
 
-                        # Combinando as cores
-                        r, g, b = prev_color + new_color
+                        # Interpolação normais para obter normal no ponto
+                        v0_v1 = np.array([xb, yb, zb]) - np.array([xa, ya, za])
+                        v0_v2 = np.array([xc, yc, zc]) - np.array([xa, ya, za])
+                        N0    = np.cross(v0_v1,v0_v2)/np.linalg.norm(np.cross(v0_v1,v0_v2))
+                        N0    = [0.0 if math.isnan(i) else i for i in N0]
+                        # N0    = np.cross(v0_v1,v0_v2)
+
+                        v1_v2 = np.array([xc, yc, zc]) - np.array([xb, yb, zb])
+                        v1_v0 = np.array([xa, ya, za]) - np.array([xb, yb, zb])
+                        N1 = np.cross(v1_v2,v1_v0)/np.linalg.norm(np.cross(v1_v2,v1_v0))
+                        N1    = [0.0 if math.isnan(i) else i for i in N1]
+                        # N1 = np.cross(v1_v2,v1_v0)
+
+                        v2_v0 = np.array([xa, ya, za]) - np.array([xc, yc, zc])
+                        v2_v1 = np.array([xb, yb, zb]) - np.array([xc, yc, zc])
+                        N2 = np.cross(v2_v0,v2_v1)/np.linalg.norm(np.cross(v2_v0,v2_v1))
+                        N2    = [0.0 if math.isnan(i) else i for i in N2]
+                        # N2 = np.cross(v2_v0,v2_v1)
+                        
+                        # Normal do ponto
+                        N0_alpha = [alpha*i for i in N0]
+                        N1_beta  = [beta*i for i in N1]
+                        N2_gama  = [gama*i for i in N2]
+                        N_interpolada = Z*(N0_alpha/za + N1_beta/zb + N2_gama/zc)
+                        # N_interpolada = N_interpolada/np.linalg.norm(N_interpolada)
+
+                        # Dados do material
+                        Oe_rgb = colors['emissiveColor']
+                        Od_rgb = colors['diffuseColor']
+                        Os_rgb = colors['specularColor']
+                        Oa = 0.2 # por default é esse valor
+
+                        # Dados da luz
+                        Ilrgb     = GL.directional_Light['color']
+                        Ii        = GL.directional_Light['intensity'] 
+                        Iia       = GL.directional_Light['ambientIntensity']
+                        shininess = colors['shininess']
+                        # invertendo sinal da direção
+                        L         = [-i for i in GL.directional_Light['direction']] 
+
+                        # Calculando iluminações
+                        # Ambiente
+                        ambient_i  = [Iia*Oa*i for i in Od_rgb]
+
+                        # Difusa
+                        nl_dotproduct = np.matmul(N_interpolada, L)
+                        nl_dotproduct = 0.0 if nl_dotproduct < 0 else nl_dotproduct
+                        diffuse_i  = [Ii*nl_dotproduct*i for i in Od_rgb]
+
+                        # Especular
+                        lv_dotproduct = np.matmul(N_interpolada, ((L+v)/np.linalg.norm(L+v)))
+                        lv_dotproduct = 0.0 if lv_dotproduct < 0 else lv_dotproduct 
+                        specular_i = [Ii*lv_dotproduct**(shininess*128)*i for i in Os_rgb]
+
+                        ilum  = [ambient_i[i]+diffuse_i[i]+specular_i[i] for i in range(3)]
+                        Irgb_ = [ilum[i]*Ilrgb[i] for i in range(3)]
+                        Irgb  = [Oe_rgb[i] + Irgb_[i] for i in range(3)]
+
+                        r, g, b = Irgb[0], Irgb[1], Irgb[2]
+
+                        # Seta que as texturas estejam no intervalo entre 0 e 255
+                        r =  max(min(r, 1.0), 0.0)*255
+                        g =  max(min(g, 1.0), 0.0)*255
+                        b =  max(min(b, 1.0), 0.0)*255
 
                         # r, g, b = color_buffer
                         gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
-                    else:
+
+                        
+                        # DEBUG:
+                        # print("ILrgb : ", Ilrgb)
+                        # print("Ii    :  ", Ii)
+                        # print("Iia   :  ", Iia, "\n")
+
+                        # print("Oe_rgb: ", Oe_rgb)
+                        # print("Od_rgb: ", Od_rgb)
+                        # print("Os_rgb: ", Os_rgb, "\n")
+
+                        # print("L     : ", L)
+                        # print("xa,ya,za: ", [xa, ya, za])
+                        # print("xb,yb,zb: ", [xb, yb, zb])
+                        # print("xc,yc,zc: ", [xc, yc, zc])
+                        # print("v0_v1: ", v0_v1)
+                        # print("v0_v2: ", v0_v2)
+                        # print("v1_v2: ", v1_v2)
+                        # print("v1_v0: ", v1_v0)
+                        # print("v2_v0: ", v2_v0)
+                        # print("v2_v1: ", v2_v1)
+                        # print("N0    : ", N0)
+                        # print("N1    : ", N1)
+                        # print("N2    : ", N2)
+                        # print("N     : ", N_interpolada, "\n")
+                        # print("N.L   : ", np.matmul(N_interpolada, L))
+                        # print("L+v   : ", np.matmul(N_interpolada, ((L+v)/np.linalg.norm(L+v))), "\n")
+
+                        # print("ambient_i  : ", ambient_i)
+                        # print("diffuse_i  : ", diffuse_i)
+                        # print("specular_i : ", specular_i, "\n")
+                        
+                    
+                    # Texture info
+                    elif texture_3D:
                         # (u,v)00
                         u = Z*(alpha*texture_3D[0]/za + beta*texture_3D[2]/zb + gama*texture_3D[4]/zc)*(len(GL.image_texture))
                         v = Z*(alpha*texture_3D[1]/za + beta*texture_3D[3]/zb + gama*texture_3D[5]/zc)*(len(GL.image_texture))
@@ -613,8 +717,6 @@ class GL:
                         L = max(math.sqrt(dudx**2 + dvdx**2), math.sqrt(dudy**2 + dvdy**2))
                         D = abs(int(math.log(L, 2))) if L != 0 else 0
 
-                        print(D)
-
                         r = GL.mip_map[D][int(u/(2**D))][int(v/(2**D))][0]
                         g = GL.mip_map[D][int(u/(2**D))][int(v/(2**D))][1]
                         b = GL.mip_map[D][int(u/(2**D))][int(v/(2**D))][2]
@@ -626,6 +728,24 @@ class GL:
 
                         # r, g, b = color_buffer
                         gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
+                    
+                    # Regular drawing
+                    else:
+                        # Previous Color
+                        prev_color = gpu.GPU.read_pixel([i, j], gpu.GPU.RGB8)*colors['transparency']
+
+                        # New Color
+                        r = colors['emissiveColor'][0]*(1-colors['transparency'])*255.0
+                        g = colors['emissiveColor'][1]*(1-colors['transparency'])*255.0
+                        b = colors['emissiveColor'][2]*(1-colors['transparency'])*255.0
+                        new_color = [r, g, b]
+
+                        # Combinando as cores
+                        r, g, b = prev_color + new_color
+
+                        # r, g, b = color_buffer
+                        gpu.GPU.draw_pixel([i, j], gpu.GPU.RGB8, [r, g, b]) 
+
 
     @staticmethod
     def draw_triangle(points, colors, color=None, two_dimensional=None, transparency=False, texture=None):
@@ -871,9 +991,6 @@ class GL:
         # e Z, respectivamente, e cada valor do tamanho deve ser maior que zero. Para desenha
         # essa caixa você vai provavelmente querer tesselar ela em triângulos, para isso
         # encontre os vértices e defina os triângulos.
-        print(size)
-
-
         p1 = [ size[0]/2.0, -size[1]/2.0, -size[2]/2.0]
         p2 = [-size[0]/2.0, -size[1]/2.0, -size[2]/2.0]
         p3 = [ size[0]/2.0,  size[1]/2.0, -size[2]/2.0]
@@ -929,10 +1046,6 @@ class GL:
         # textura para o poligono, para isso, use as coordenadas de textura e depois aplique a
         # cor da textura conforme a posição do mapeamento. Dentro da classe GPU já está
         # implementadado um método para a leitura de imagens.
-        print(texCoord)
-        print(texCoordIndex)
-        print(current_texture)
-
         if current_texture:
             # Definindo variável global de textura
             GL.image_texture = gpu.GPU.load_texture(current_texture[0])
@@ -1030,7 +1143,7 @@ class GL:
         # os triângulos.
 
         # Define o número de pontos a serem gerados
-        num_points = 20
+        num_points = 80
 
         # Gera valores equidistantes para o ângulo polar e o ângulo azimutal
         theta_values = [math.pi * i / num_points for i in range(num_points)]
@@ -1075,8 +1188,16 @@ class GL:
         # A luz headlight deve ser direcional, ter intensidade = 1, cor = (1 1 1),
         # ambientIntensity = 0,0 e direção = (0 0 −1).
 
+        if headlight:
+            GL.head_Light = {
+                'ambientIntensity' : 0.0,
+                'color'            : [1.0, 1.0, 1.0],
+                'intensity'        : 1.0,
+                'direction'        : [0.0, 0.0, -1.0]
+            }
+
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
+        print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
 
     @staticmethod
     def directionalLight(ambientIntensity, color, intensity, direction):
@@ -1086,6 +1207,13 @@ class GL:
         # cor, intensidade. O campo de direção especifica o vetor de direção da iluminação
         # que emana da fonte de luz no sistema de coordenadas local. A luz é emitida ao
         # longo de raios paralelos de uma distância infinita.
+
+        GL.directional_Light = {
+            'ambientIntensity' : ambientIntensity,
+            'color'            : color,
+            'intensity'        : intensity,
+            'direction'        : direction
+        }
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("DirectionalLight : ambientIntensity = {0}".format(ambientIntensity))
